@@ -271,7 +271,7 @@ if __name__ == "__main__":
 
     # get config and name of agent
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config_file", type=str, default="ski_mdp.json")
+    parser.add_argument("--config_file", type=str, default="oa_crstudy_mdp.json")
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--agent_name", type=str, default="LSTMDDPG")
     args = parser.parse_args()
