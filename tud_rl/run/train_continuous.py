@@ -5,8 +5,8 @@ import random
 import time
 
 import gym
-import gym_minatar
-import gym_pygame
+#import gym_minatar
+#import gym_pygame
 import numpy as np
 import torch
 from tud_rl.envs.MountainCar import MountainCar
@@ -255,7 +255,7 @@ def train(c, agent_name):
             agent.logger.dump_tabular()
 
             # create evaluation plot based on current 'progress.txt'
-            plot_from_progress(dir=agent.logger.output_dir, alg=agent.name, env_str=c["env"]["name"], info=c["env"]["info"])
+            #plot_from_progress(dir=agent.logger.output_dir, alg=agent.name, env_str=c["env"]["name"], info=c["env"]["info"])
 
             # save weights
             torch.save(agent.actor.state_dict(), f"{agent.logger.output_dir}/{agent.name}_actor_weights.pth")
@@ -273,7 +273,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_file", type=str, default="oa_crstudy_mdp.json")
     parser.add_argument("--seed", type=int, default=None)
-    parser.add_argument("--agent_name", type=str, default="LSTMDDPG")
+    parser.add_argument("--agent_name", type=str, default="TD3")
     args = parser.parse_args()
 
     # read config file

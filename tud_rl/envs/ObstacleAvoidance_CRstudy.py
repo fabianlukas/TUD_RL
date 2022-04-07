@@ -4,6 +4,12 @@ from gym import spaces
 from matplotlib import pyplot as plt
 import matplotlib.patches as patches
 
+TRAIN_ON_TAURUS = True
+
+if TRAIN_ON_TAURUS:
+    prefix = "/home/s8272124/"
+else:
+    prefix = ""
 
 
 class ObstacleAvoidance_CRstudy(gym.Env):
@@ -20,8 +26,8 @@ class ObstacleAvoidance_CRstudy(gym.Env):
         # constants
         self.m = 25
         self.J = 100
-        self.deltaT = 0.1
-        self.Radius = 1.5
+        self.deltaT = 0.25
+        self.Radius = 3
         self.internal_episode_count = -1
 
         self.u_norm = 1.5
@@ -29,14 +35,14 @@ class ObstacleAvoidance_CRstudy(gym.Env):
         self.d_norm = 15
 
         # load sencario data
-        self.CR = np.loadtxt("input/CR.txt")
-        self.U0 = np.loadtxt("input/U0.txt")
-        self.R0 = np.loadtxt("input/R0.txt")
+        self.CR = np.loadtxt(prefix + "input/CR.txt")
+        self.U0 = np.loadtxt(prefix + "input/U0.txt")
+        self.R0 = np.loadtxt(prefix + "input/R0.txt")
 
-        self.OBST_X0 =  np.loadtxt("input/OBST_X0.txt", delimiter=",")
-        self.OBST_Y0 = np.loadtxt("input/OBST_Y0.txt", delimiter=",")
-        self.OBST_VX0 = np.loadtxt("input/OBST_VX0.txt", delimiter=",")
-        self.OBST_VY0 = np.loadtxt("input/OBST_VY0.txt", delimiter=",")
+        self.OBST_X0 =  np.loadtxt(prefix + "input/OBST_X0.txt", delimiter=",")
+        self.OBST_Y0 = np.loadtxt(prefix + "input/OBST_Y0.txt", delimiter=",")
+        self.OBST_VX0 = np.loadtxt(prefix + "input/OBST_VX0.txt", delimiter=",")
+        self.OBST_VY0 = np.loadtxt(prefix + "input/OBST_VY0.txt", delimiter=",")
 
         self.N_obst = np.size(self.OBST_X0[0])       
              
@@ -121,7 +127,7 @@ class ObstacleAvoidance_CRstudy(gym.Env):
         """Takes an action and performs one step in the environment.
         Returns reward, new_state, done."""
 
-        action = [0,0]
+        # action = [0,0]
         self._move_obst()
         self._move_agent(action)
         self.action = action
