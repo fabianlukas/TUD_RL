@@ -7,7 +7,7 @@ import matplotlib.patches as patches
 TRAIN_ON_TAURUS = True
 
 if TRAIN_ON_TAURUS:
-    prefix = "/home/s8272124/"
+    prefix = "/home/s8272124/TUD_RL"
 else:
     prefix = ""
 
