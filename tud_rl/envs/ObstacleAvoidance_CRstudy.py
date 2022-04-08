@@ -4,7 +4,7 @@ from gym import spaces
 from matplotlib import pyplot as plt
 import matplotlib.patches as patches
 
-TRAIN_ON_TAURUS = True
+TRAIN_ON_TAURUS = False
 
 if TRAIN_ON_TAURUS:
     prefix = "/home/s8272124/TUD_RL/"
@@ -105,8 +105,9 @@ class ObstacleAvoidance_CRstudy(gym.Env):
         """Sets state"""    
 
         # compute angles
-        theta = np.arctan2(self.y_obst-self.y,self.x_obst-self.x) - self.phi       # direction of obstacle position in body frame
-        theta2 = self.phi_obst - self.phi                                          # moving direction of obstacle with respect to moving agent
+        theta = np.arctan2(self.y_obst-self.y, self.x_obst-self.x) - self.phi       # direction of obstacle position in body frame
+        #theta2 = self.phi_obst - self.phi                                          # moving direction of obstacle with respect to moving agent
+        theta2 = np.arctan2(self.y-self.y_obst, self.x-self.x_obst) - self.phi_obst                                           # moving direction of obstacle with respect to moving agent
 
 
 
@@ -205,8 +206,8 @@ class ObstacleAvoidance_CRstudy(gym.Env):
             # clear prior axes, set limits and add labels and title
             
             self.ax0.clear()
-            self.ax0.set_xlim(0,2*self.d_norm)
-            self.ax0.set_ylim(-self.d_norm/2,self.d_norm/2)
+            self.ax0.set_xlim(0,3*self.d_norm)
+            self.ax0.set_ylim(-self.d_norm,self.d_norm)
             self.ax0.set_xlabel("x")
             self.ax0.set_ylabel("y")
             if agent_name is not None:
@@ -224,8 +225,8 @@ class ObstacleAvoidance_CRstudy(gym.Env):
             # visualize path
             if self.current_timestep == 0:
                 self.ax01.clear()
-                self.ax01.set_xlim(0,2*self.d_norm)
-                self.ax01.set_ylim(-self.d_norm/2,self.d_norm/2)
+                self.ax01.set_xlim(0,3*self.d_norm)
+                self.ax01.set_ylim(-self.d_norm,self.d_norm)
                 self.ax01.old_x = 0
                 self.ax01.old_y = 0
                 self.ax01.patch.set_alpha(0.5)

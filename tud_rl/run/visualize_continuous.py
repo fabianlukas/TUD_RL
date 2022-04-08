@@ -132,9 +132,9 @@ if __name__ == "__main__":
     # get config and name of agent
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_file", type=str, default="oa_crstudy_mdp.json")
-    parser.add_argument("--agent_name", type=str, default="TD3")
-    parser.add_argument("--actor_weights", type=str, default="TD3_actor_weights.pth")
-    parser.add_argument("--critic_weights", type=str, default="TD3_critic_weights.pth")
+    parser.add_argument("--agent_name", type=str, default="LSTMTD3")
+    parser.add_argument("--actor_weights", type=str, default="LSTMTD3_actor_weights.pth")
+    parser.add_argument("--critic_weights", type=str, default="LSTMTD3_critic_weights.pth")
     args = parser.parse_args()
 
     # read config file
