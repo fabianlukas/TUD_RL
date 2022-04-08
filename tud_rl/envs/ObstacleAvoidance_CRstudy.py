@@ -132,7 +132,9 @@ class ObstacleAvoidance_CRstudy(gym.Env):
         self._move_agent(action)
         self.action = action
         self._set_state()
-        done = self._done()             
+        self._reward()
+        done = self._done()    
+
 
         self.current_timestep += 1
         
@@ -160,6 +162,9 @@ class ObstacleAvoidance_CRstudy(gym.Env):
         # distance to obstacles
         self.d_obst_old = self.d_obst
         self.d_obst = np.sqrt(np.power(self.x - self.x_obst,2) + np.power(self.y - self.y_obst,2))
+    
+    def _reward(self):
+        self.reward = - np.exp(-0.3*self.d_obst)
 
     
     def _done(self):
@@ -168,10 +173,10 @@ class ObstacleAvoidance_CRstudy(gym.Env):
 
         if np.all(self.d_obst_old < self.d_obst) or self.current_timestep > 300: # no collision!
             done = True
-            self.reward = 10
+            self.reward = self.reward 
         elif np.any( self.d_obst < self.Radius): # collision!
             done = True
-            self.reward = -10
+            self.reward = self.reward - 1
         return done
     
     def render(self, agent_name=None):
@@ -243,9 +248,17 @@ class ObstacleAvoidance_CRstudy(gym.Env):
                 self.ax1.labels = np.append(self.ax1.labels, np.repeat('theta',self.N_obst))
                 self.ax1.labels = np.append(self.ax1.labels, np.repeat('u_rel',self.N_obst))
                 self.ax1.labels = np.append(self.ax1.labels, np.repeat('theta2',self.N_obst))
-                self.ax1.plot([self.ax1.old_time, self.current_timestep], [self.ax1.old_state, self.state], label=self.ax1.labels)
+
+                self.ax1.colors = np.array(['lightcoral', 'red'])
+                self.ax1.colors = np.append(self.ax1.colors, np.repeat('green',self.N_obst))
+                self.ax1.colors = np.append(self.ax1.colors, np.repeat('blue',self.N_obst))
+                self.ax1.colors = np.append(self.ax1.colors, np.repeat('plum',self.N_obst))
+                self.ax1.colors = np.append(self.ax1.colors, np.repeat('peru',self.N_obst))
+                for old_statevar, statevar, c, l in zip(self.ax1.old_state, self.state,  self.ax1.colors, self.ax1.labels):
+                    self.ax1.plot([self.ax1.old_time, self.current_timestep], [old_statevar, statevar], color= c, label=l)
            
-            self.ax1.plot([self.ax1.old_time, self.current_timestep], [self.ax1.old_state, self.state])
+            for old_statevar, statevar, c in zip(self.ax1.old_state, self.state,  self.ax1.colors):
+                self.ax1.plot([self.ax1.old_time, self.current_timestep], [old_statevar, statevar], color= c)
             self.ax1.old_time = self.current_timestep
             self.ax1.old_state = self.state            
             
@@ -260,8 +273,8 @@ class ObstacleAvoidance_CRstudy(gym.Env):
                 self.ax2.clear()
                 self.ax2.old_time = 0
                 self.ax2.old_reward = 0
-            self.ax2.set_xlim(1, 3000)
-            self.ax2.set_ylim(0, 100)
+            self.ax2.set_xlim(1, 200)
+            self.ax2.set_ylim(-1,0)
             self.ax2.set_xlabel("Timestep in episode")
             self.ax2.set_ylabel("Reward")
             self.ax2.plot([self.ax2.old_time, self.current_timestep], [self.ax2.old_reward, self.reward], color = "black")
