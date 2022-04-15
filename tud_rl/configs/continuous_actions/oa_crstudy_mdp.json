@@ -6,7 +6,7 @@
       "state_type"        : "feature",
       "wrappers"          : [],
       "wrapper_kwargs"    : {},
-      "env_kwargs"        : {"POMDP_type" : "MDP"},
+      "env_kwargs"        : {"POMDP_type" : "MDP", "N_obst" : 1, "CR_dist" : "uniform"},
       "info"              : "MDP"
    }
    ,
@@ -26,7 +26,7 @@
   "seed"             : 12,
   "timesteps"        : 15e6,
   "epoch_length"     : 5e3,
-  "eval_episodes"    : 100,
+  "eval_episodes"    : 240,
   "actor_weights"    : null,
   "critic_weights"   : null,
   "input_norm"       : false,

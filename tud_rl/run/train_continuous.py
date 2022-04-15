@@ -100,8 +100,9 @@ def train(c, agent_name):
     start_time = time.time()
     
     # init envs
-    env = gym.make(c["env"]["name"], **c["env"]["env_kwargs"])
-    test_env = gym.make(c["env"]["name"], **c["env"]["env_kwargs"])
+
+    env = gym.make(c["env"]["name"], **{ **c["env"]["env_kwargs"], 'mode':'train'})
+    test_env = gym.make(c["env"]["name"],**{ **c["env"]["env_kwargs"], 'mode':'test'})
 
     # wrappers
     for wrapper in c["env"]["wrappers"]:
@@ -273,7 +274,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_file", type=str, default="oa_crstudy_mdp.json")
     parser.add_argument("--seed", type=int, default=None)
-    parser.add_argument("--agent_name", type=str, default="LSTMTD3")
+    parser.add_argument("--agent_name", type=str, default="TD3")
+    parser.add_argument("--lr_critic", type=float, default=None)
+    parser.add_argument("--lr_actor", type=float, default=None)
     args = parser.parse_args()
 
     # read config file
@@ -283,6 +286,15 @@ if __name__ == "__main__":
     # potentially overwrite seed
     if args.seed is not None:
         c["seed"] = args.seed
+
+
+    # potentially overwrite seed
+    if args.lr_actor is not None:
+        c["lr_actor"] = int(args.lr_actor)
+
+    # potentially overwrite seed
+    if args.lr_critic is not None:
+        c["lr_critic"] = int(args.lr_critic)
 
     # convert certain keys in integers
     for key in ["seed", "timesteps", "epoch_length", "eval_episodes", "buffer_length", "act_start_step",\

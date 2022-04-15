@@ -17,16 +17,19 @@ class ObstacleAvoidance_CRstudy(gym.Env):
 
    
     
-    def __init__(self, POMDP_type="MDP"):
+    def __init__(self, POMDP_type = "MDP", N_obst = 1, CR_dist = "uniform", mode="train"):
         
         # ----------------------------- settings and hyperparameter -----------------------------------------
         assert POMDP_type in ["MDP", "RV", "FL"], "Unknown MDP/POMDP specification."
         self.POMDP_type  = POMDP_type 
+        self.mode = mode
+        self.N_obst = N_obst
+        self.CR_dist = CR_dist
 
         # constants
-        self.m = 25
-        self.J = 100
-        self.deltaT = 0.25
+        self.m = 15
+        self.J = 30
+        self.deltaT = 0.1
         self.Radius = 3
         self.internal_episode_count = -1
 
@@ -35,16 +38,21 @@ class ObstacleAvoidance_CRstudy(gym.Env):
         self.d_norm = 15
 
         # load sencario data
-        self.CR = np.loadtxt(prefix + "input/CR.txt")
-        self.U0 = np.loadtxt(prefix + "input/U0.txt")
-        self.R0 = np.loadtxt(prefix + "input/R0.txt")
+        if mode == "test":
+            path = prefix + "input/"+str(N_obst)+"_obst/validation/"
+        else:            
+            path = prefix + "input/"+str(N_obst)+"_obst/"+CR_dist+"/"            
 
-        self.OBST_X0 =  np.loadtxt(prefix + "input/OBST_X0.txt", delimiter=",")
-        self.OBST_Y0 = np.loadtxt(prefix + "input/OBST_Y0.txt", delimiter=",")
-        self.OBST_VX0 = np.loadtxt(prefix + "input/OBST_VX0.txt", delimiter=",")
-        self.OBST_VY0 = np.loadtxt(prefix + "input/OBST_VY0.txt", delimiter=",")
+        self.CR = np.loadtxt(path + "CR.txt")
+        self.U0 = np.loadtxt(path + "U0.txt")
+        self.R0 = np.loadtxt(path + "R0.txt")
 
-        self.N_obst = np.size(self.OBST_X0[0])       
+        self.OBST_X0 =  np.loadtxt(path + "OBST_X0.txt", delimiter=",")
+        self.OBST_Y0 = np.loadtxt(path + "OBST_Y0.txt", delimiter=",")
+        self.OBST_VX0 = np.loadtxt(path + "OBST_VX0.txt", delimiter=",")
+        self.OBST_VY0 = np.loadtxt(path + "OBST_VY0.txt", delimiter=",")
+
+     
              
         
         # rendering
@@ -107,7 +115,7 @@ class ObstacleAvoidance_CRstudy(gym.Env):
         # compute angles
         theta = np.arctan2(self.y_obst-self.y, self.x_obst-self.x) - self.phi       # direction of obstacle position in body frame
         #theta2 = self.phi_obst - self.phi                                          # moving direction of obstacle with respect to moving agent
-        theta2 = np.arctan2(self.y-self.y_obst, self.x-self.x_obst) - self.phi_obst                                           # moving direction of obstacle with respect to moving agent
+        theta2 = np.arctan2(self.y-self.y_obst, self.x-self.x_obst) - self.phi_obst # moving direction of agent with respect to obstacle
 
 
 
@@ -128,9 +136,11 @@ class ObstacleAvoidance_CRstudy(gym.Env):
         """Takes an action and performs one step in the environment.
         Returns reward, new_state, done."""
 
-        # action = [0,0]
-        self._move_obst()
-        self._move_agent(action)
+        #action = [0.8,0.8]
+        for i in range(2):
+            self._move_obst()
+            self._move_agent(action)
+
         self.action = action
         self._set_state()
         self._reward()
@@ -165,16 +175,17 @@ class ObstacleAvoidance_CRstudy(gym.Env):
         self.d_obst = np.sqrt(np.power(self.x - self.x_obst,2) + np.power(self.y - self.y_obst,2))
     
     def _reward(self):
-        self.reward = - np.exp(-0.3*self.d_obst)
+        #self.reward = - np.exp(-0.3*self.d_obst)
+        self.reward = 0
 
     
     def _done(self):
         """Returns boolean flag whether episode is over."""
         done = False
 
-        if np.all(self.d_obst_old < self.d_obst) or self.current_timestep > 300: # no collision!
+        if np.all(self.d_obst_old < self.d_obst) or self.current_timestep * self.deltaT > 20: # no collision!
             done = True
-            self.reward = self.reward 
+            self.reward = self.reward + 1
         elif np.any( self.d_obst < self.Radius): # collision!
             done = True
             self.reward = self.reward - 1
@@ -218,9 +229,10 @@ class ObstacleAvoidance_CRstudy(gym.Env):
             self.ax0.scatter(self.x_obst, self.y_obst, s = 2, color = "green")   
             circ = patches.Circle((self.x, self.y), radius=self.Radius/2, edgecolor='blue', facecolor='none', alpha=0.3)
             self.ax0.add_patch(circ)
-            circ2 = patches.Circle((self.x_obst, self.y_obst), radius=self.Radius/2, edgecolor='blue', facecolor='none', alpha=0.3)
-            self.ax0.add_patch(circ2)
-            self.ax0.text(2, 8, "CR: "+ np.array2string(self.CR[self.internal_episode_count], precision=2), horizontalalignment='center', verticalalignment='center', color='blue')    
+            for i in range(self.N_obst):
+                circ2 = patches.Circle((self.x_obst[i], self.y_obst[i]), radius=self.Radius/2, edgecolor='blue', facecolor='none', alpha=0.3)
+                self.ax0.add_patch(circ2)
+            self.ax0.text(5, 8, "CR: "+ np.array2string(self.CR[self.internal_episode_count], precision=2), horizontalalignment='center', verticalalignment='center', color='blue')    
 
             # visualize path
             if self.current_timestep == 0:
