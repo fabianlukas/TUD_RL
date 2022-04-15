@@ -78,7 +78,7 @@ def visualize_policy(env, agent, c):
             s = s2
             cur_ret += r
 
-            # break option
+            # break option 
             if eval_epi_steps == c["env"]["max_episode_steps"]:
                 break
         

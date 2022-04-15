@@ -24,7 +24,7 @@ from tud_rl.configs.continuous_actions import __path__
 
 def evaluate_policy(test_env, agent, c):
 
-    # go greedy
+    # go greedy 
     agent.mode = "test"
     
     rets = []

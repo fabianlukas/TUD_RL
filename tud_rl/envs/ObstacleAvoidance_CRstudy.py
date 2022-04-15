@@ -24,7 +24,7 @@ class ObstacleAvoidance_CRstudy(gym.Env):
         self.POMDP_type  = POMDP_type 
         self.mode = mode
         self.N_obst = N_obst
-        self.CR_dist = CR_dist
+        self.CR_dist = CR_dist #test
 
         # constants
         self.m = 15
