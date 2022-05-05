@@ -4,20 +4,24 @@ import gym
 import numpy as np
 from gym import spaces
 from matplotlib import pyplot as plt
+from collections import deque
+
 
 
 class ObstacleAvoidance(gym.Env):
     """Class environment with initializer, step, reset and render method."""
     
-    def __init__(self, POMDP_type="MDP", frame_stack=1, n_vessels=12, max_temporal_dist=300):
+    def __init__(self, POMDP_type="MDP", frame_stack=1, n_vessels=12, max_temporal_dist=300, mode="train", obst_traj = "stochastic"):
         
         # ----------------------------- settings and hyperparameter -----------------------------------------
 
         assert POMDP_type in ["MDP", "RV", "FL"], "Unknown MDP/POMDP specification."
         assert frame_stack >= 1, "Frame stacking must be positive."
+        assert obst_traj in ["constant", "stochastic"], "Unknown obstacle trajectory specification."
 
         self.POMDP_type     = POMDP_type
         self.frame_stack    = frame_stack
+        self.obst_traj      = obst_traj
         self.FL_prob        = 0.1
         self.sort_obs_ttc   = False
 
@@ -45,6 +49,8 @@ class ObstacleAvoidance(gym.Env):
         # maximum sight of agent
         self.delta_x_max = self.max_temporal_dist * self.vx_max
         self.delta_y_max = self.max_temporal_dist * self.vy_max
+        self.R_scale = np.sqrt(self.delta_x_max**2 + self.delta_y_max**2)
+        self.u_scale = np.sqrt(self.vx_max**2 + self.vy_max**2)
 
         # time step, max episode steps and length of river
         self.delta_t = 5
@@ -131,6 +137,18 @@ class ObstacleAvoidance(gym.Env):
         self.vessel_vy = np.empty((self.n_vessels), dtype=np.float32)
         self.vessel_ttc = np.empty((self.n_vessels), dtype=np.float32)
 
+        if self.obst_traj == "stochastic":
+            self.vessel_x_traj_low  = deque([None]*self.n_vessels_half)
+            self.vessel_y_traj_low  = deque([None]*self.n_vessels_half)
+            self.vessel_vx_traj_low = deque([None]*self.n_vessels_half)
+            self.vessel_vy_traj_low = deque([None]*self.n_vessels_half)
+            self.vessel_x_traj_up  = deque([None]*self.n_vessels_half)
+            self.vessel_y_traj_up  = deque([None]*self.n_vessels_half)
+            self.vessel_vx_traj_up = deque([None]*self.n_vessels_half)
+            self.vessel_vy_traj_up = deque([None]*self.n_vessels_half)
+
+
+
         # find initial vessel position
         self._place_vessel(True,-1)
         self._place_vessel(True, 1)
@@ -146,12 +164,22 @@ class ObstacleAvoidance(gym.Env):
             y = self.vessel_y[:self.n_vessels_half].copy()
             vx = self.vessel_vx[:self.n_vessels_half].copy()
             vy = self.vessel_vy[:self.n_vessels_half].copy()
+            if self.obst_traj == "stochastic":
+                x_traj = self.vessel_x_traj_low
+                y_traj = self.vessel_y_traj_low
+                vx_traj = self.vessel_vx_traj_low
+                vy_traj = self.vessel_vy_traj_low
         else:
             ttc = self.vessel_ttc[self.n_vessels_half:].copy()
             x = self.vessel_x[self.n_vessels_half:].copy()
             y = self.vessel_y[self.n_vessels_half:].copy()
             vx = self.vessel_vx[self.n_vessels_half:].copy()
             vy = self.vessel_vy[self.n_vessels_half:].copy()
+            if self.obst_traj == "stochastic":
+                x_traj = self.vessel_x_traj_up
+                y_traj = self.vessel_y_traj_up
+                vx_traj = self.vessel_vx_traj_up
+                vy_traj = self.vessel_vy_traj_up        
 
         # compute new ttc
         if initial_placement:
@@ -163,10 +191,43 @@ class ObstacleAvoidance(gym.Env):
         y_future = self.AR1[abs(int(self.current_timestep + new_ttc/self.delta_t))] + vessel_direction * np.maximum(40, np.random.normal(100,50))
         
         new_vx = np.random.uniform(-self.vx_max, self.vx_max)
-        new_x = (self.agent_vx - new_vx) * new_ttc + self.agent_x
-
         new_vy = np.random.uniform(-self.vy_max, self.vy_max)
-        new_y = y_future - new_vy * new_ttc
+
+        if self.obst_traj == "constant":
+            new_x = (self.agent_vx - new_vx) * new_ttc + self.agent_x
+            new_y = y_future - new_vy * new_ttc
+        
+        else:
+            x_future = self.agent_x + self.agent_vx * new_ttc
+            timestepsToCollision = int(np.maximum(0,new_ttc/self.delta_t))
+            x_AR1 = np.zeros(self.max_temporal_dist + timestepsToCollision, dtype=np.float32) 
+            y_AR1 = np.zeros(self.max_temporal_dist + timestepsToCollision, dtype=np.float32)
+            x_const = np.zeros(self.max_temporal_dist + timestepsToCollision, dtype=np.float32) 
+            y_const = np.zeros(self.max_temporal_dist + timestepsToCollision, dtype=np.float32)             
+            for i in range(x_AR1.size-1):
+                x_AR1[i+1] = x_AR1[i] * 0.99 + np.random.normal(0,np.sqrt(800))
+                y_AR1[i+1] = y_AR1[i] * 0.99 + np.random.normal(0,np.sqrt(800))
+                x_const[i+1] = x_const[i] + new_vx * self.delta_t
+                y_const[i+1] = y_const[i] + new_vy * self.delta_t
+
+            x_traj.rotate(-1) 
+            y_traj.rotate(-1) 
+            vx_traj.rotate(-1) 
+            vy_traj.rotate(-1)   
+            x_AR1 = self._exponential_smoothing(x_AR1)
+            y_AR1 = self._exponential_smoothing(y_AR1)
+            temp_x = x_AR1 + x_future - x_AR1[timestepsToCollision] + x_const - x_const[timestepsToCollision]
+            temp_y = y_AR1 + y_future - y_AR1[timestepsToCollision] + y_const - y_const[timestepsToCollision]
+            x_traj[-1] = temp_x
+            y_traj[-1] = temp_y
+            vx_traj[-1] = np.diff(temp_x)/self.delta_t
+            vy_traj[-1] = np.diff(temp_y)/self.delta_t
+
+            new_x = x_traj[-1][0]
+            new_y = y_traj[-1][0]
+            new_vx = vx_traj[-1][0]
+            new_vy = vy_traj[-1][0]
+ 
 
         # rotate dynamic arrays to place new vessel at the end
         ttc = np.roll(ttc,-1)
@@ -174,6 +235,8 @@ class ObstacleAvoidance(gym.Env):
         y = np.roll(y,-1)
         vx = np.roll(vx,-1)
         vy = np.roll(vy,-1)
+
+
 
         # set new vessel dynamics
         ttc[-1] = new_ttc
@@ -188,43 +251,63 @@ class ObstacleAvoidance(gym.Env):
             self.vessel_y[:self.n_vessels_half] = y
             self.vessel_vx[:self.n_vessels_half] = vx
             self.vessel_vy[:self.n_vessels_half] = vy
+            if self.obst_traj == "stochastic":
+               self.vessel_x_traj_low  = x_traj  
+               self.vessel_y_traj_low  = y_traj  
+               self.vessel_vx_traj_low = vx_traj  
+               self.vessel_vy_traj_low = vy_traj             
         else:
             self.vessel_ttc[self.n_vessels_half:] = ttc
             self.vessel_x[self.n_vessels_half:] = x
             self.vessel_y[self.n_vessels_half:] = y
             self.vessel_vx[self.n_vessels_half:] = vx
             self.vessel_vy[self.n_vessels_half:] = vy
+            if self.obst_traj == "stochastic":
+               self.vessel_x_traj_up  = x_traj  
+               self.vessel_y_traj_up  = y_traj  
+               self.vessel_vx_traj_up = vx_traj  
+               self.vessel_vy_traj_up = vy_traj  
     
     def _set_state(self):
         """Sets state which is flattened, ordered with ascending TTC, normalized and clipped to [-1, 1]"""
-        if self.sort_obs_ttc:
-            # arrays are already sorted according ascending ttc
-            x = self.vessel_x.copy()
-            y = self.vessel_y.copy()
-            vx = self.vessel_vx.copy()
-            vy = self.vessel_vy.copy()
-        else:
-            # compute sorting index array for asceding euclidean distance
-            eucl_dist = (self.vessel_x - self.agent_x)**2 + (self.vessel_y - self.agent_y)**2
-            idx1 = np.argsort(eucl_dist[:self.n_vessels_half])
-            idx2 = np.argsort(eucl_dist[self.n_vessels_half:]) + self.n_vessels_half
-            idx = np.concatenate([idx1, idx2])
+#        if self.sort_obs_ttc:
+#            # arrays are already sorted according ascending ttc
+#            x = self.vessel_x.copy()
+#            y = self.vessel_y.copy()
+#            vx = self.vessel_vx.copy()
+#            vy = self.vessel_vy.copy()
+        
+        # compute sorting index array for asceding euclidean distance
+        eucl_dist = (self.vessel_x - self.agent_x)**2 + (self.vessel_y - self.agent_y)**2
+        idx1 = np.argsort(eucl_dist[:self.n_vessels_half])
+        idx2 = np.argsort(eucl_dist[self.n_vessels_half:]) + self.n_vessels_half
+        idx = np.concatenate([idx1, idx2])
 
-            x = self.vessel_x[idx].copy()
-            y = self.vessel_y[idx].copy()
-            vx = self.vessel_vx[idx].copy()
-            vy = self.vessel_vy[idx].copy()
+        eucl_dist = eucl_dist[idx].copy()
+        x = self.vessel_x[idx].copy()
+        y = self.vessel_y[idx].copy()
+        vx = self.vessel_vx[idx].copy()
+        vy = self.vessel_vy[idx].copy()
+
+        phi = np.arctan2(vy,vx)                                     # heading of obstacles
+        agent_phi = np.arctan2(self.agent_y,self.agent_x)           # heading of agent
+        u = np.sqrt(vx**2 + vy**2)                                  # absolute speed of obstacles
+        agent_u = np.sqrt(self.agent_vx**2 + self.agent_vy**2)      # absolute speed of agent
+
+        theta  = np.arctan2(y-self.agent_y, x-self.agent_x) - agent_phi    # direction of obstacle position in agent's body frame
+        theta2 = np.arctan2(self.agent_y-y, self.agent_x-x) - phi          # moving direction of agent with respect to obstacle
+
 
         # state definition
-        self.state = np.array([self.agent_ay/self.ay_max, self.agent_vy/self.vy_max])
-        self.state = np.append(self.state, (self.agent_x  - x)/self.delta_x_max)
-        self.state = np.append(self.state, (self.agent_y  - y)/self.delta_y_max)
+        self.state = np.array([self.agent_ay/self.ay_max,
+                               agent_u/self.u_scale])
+        self.state = np.append(self.state, eucl_dist/self.R_scale)
+        self.state = np.append(self.state,  theta/np.pi)
 
         # POMDP specs
         if self.POMDP_type in ["MDP", "FL"]:
-            v_obs = (self.agent_vx - vx)/(2*self.vx_max)
-            v_obs = np.append(v_obs, (self.agent_vy - vy)/(2*self.vy_max))
-                              
+            v_obs = np.array([u/self.u_scale,
+                               theta2/np.pi])
             self.state = np.append(self.state, v_obs)
 
         if self.POMDP_type == "FL" and np.random.binomial(1, self.FL_prob) == 1:
@@ -267,12 +350,33 @@ class ObstacleAvoidance(gym.Env):
         Used approximation: Euler-Cromer method, that is v_(n+1) = v_n + a_n * t and x_(n+1) = x_n + v_(n+1) * t."""
 
         for i in range(self.n_vessels):
+            if self.obst_traj == "constant":
+                # lateral dynamics
+                self.vessel_y[i] = self.vessel_y[i] + self.vessel_vy[i] * self.delta_t
 
-            # lateral dynamics
-            self.vessel_y[i] = self.vessel_y[i] + self.vessel_vy[i] * self.delta_t
+                # longitudinal dynamics     
+                self.vessel_x[i] = self.vessel_x[i] + self.vessel_vx[i] * self.delta_t
+            else:
+                if i < self.n_vessels_half:
+                    self.vessel_x[i]  = self.vessel_x_traj_low[i][0]
+                    self.vessel_y[i]  = self.vessel_y_traj_low[i][0]
+                    self.vessel_vx[i] = self.vessel_vx_traj_low[i][0]
+                    self.vessel_vy[i] = self.vessel_vy_traj_low[i][0]
+                    self.vessel_x_traj_low[i]  = np.delete(self.vessel_x_traj_low[i], 0)
+                    self.vessel_y_traj_low[i]  = np.delete(self.vessel_y_traj_low[i], 0)
+                    self.vessel_vx_traj_low[i] = np.delete(self.vessel_vx_traj_low[i], 0)
+                    self.vessel_vy_traj_low[i] = np.delete(self.vessel_vy_traj_low[i], 0)
 
-            # longitudinal dynamics     
-            self.vessel_x[i] = self.vessel_x[i] + self.vessel_vx[i] * self.delta_t
+                else:
+                    temp_index = i-self.n_vessels_half
+                    self.vessel_x[i]  = self.vessel_x_traj_up[temp_index][0]
+                    self.vessel_y[i]  = self.vessel_y_traj_up[temp_index][0]
+                    self.vessel_vx[i] = self.vessel_vx_traj_up[temp_index][0]
+                    self.vessel_vy[i] = self.vessel_vy_traj_up[temp_index][0]  
+                    self.vessel_x_traj_up[temp_index]  = np.delete(self.vessel_x_traj_up[temp_index], 0)
+                    self.vessel_y_traj_up[temp_index]  = np.delete(self.vessel_y_traj_up[temp_index], 0)
+                    self.vessel_vx_traj_up[temp_index] = np.delete(self.vessel_vx_traj_up[temp_index], 0)
+                    self.vessel_vy_traj_up[temp_index] = np.delete(self.vessel_vy_traj_up[temp_index], 0)                                      
             self.vessel_ttc[i] -= self.delta_t
             
             # replace vessel if necessary       
@@ -345,9 +449,9 @@ class ObstacleAvoidance(gym.Env):
             
             # ---- ACTUAL SHIP MOVEMENT ----
             # clear prior axes, set limits and add labels and title
-            self.ax0.clear()
-            self.ax0.set_xlim(-1500, self.x_max + 1500)
-            self.ax0.set_ylim(-self.y_max, self.y_max)
+            #self.ax0.clear()
+            self.ax0.set_xlim(-1500, 5000)
+            self.ax0.set_ylim(-2000, 2000)
             self.ax0.set_xlabel("x")
             self.ax0.set_ylabel("y")
             if agent_name is not None:

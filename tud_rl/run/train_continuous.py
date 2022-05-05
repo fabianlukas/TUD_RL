@@ -272,7 +272,7 @@ if __name__ == "__main__":
 
     # get config and name of agent
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config_file", type=str, default="oa_crstudy_mdp.json")
+    parser.add_argument("--config_file", type=str, default="cr_study_box.json")
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--agent_name", type=str, default="TD3")
     parser.add_argument("--lr_critic", type=float, default=None)
@@ -287,14 +287,11 @@ if __name__ == "__main__":
     if args.seed is not None:
         c["seed"] = args.seed
 
-
-    # potentially overwrite seed
     if args.lr_actor is not None:
-        c["lr_actor"] = int(args.lr_actor)
+        c["lr_actor"] = args.lr_actor
 
-    # potentially overwrite seed
     if args.lr_critic is not None:
-        c["lr_critic"] = int(args.lr_critic)
+        c["lr_critic"] = args.lr_critic
 
     # convert certain keys in integers
     for key in ["seed", "timesteps", "epoch_length", "eval_episodes", "buffer_length", "act_start_step",\

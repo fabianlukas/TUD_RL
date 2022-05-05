@@ -87,7 +87,7 @@ def visualize_policy(env, agent, c):
 
 def test(c, agent_name, actor_weights, critic_weights):
     # init envs
-    env = gym.make(c["env"]["name"], **{ **c["env"]["env_kwargs"], 'mode':'train'},)
+    env = gym.make(c["env"]["name"], **{ **c["env"]["env_kwargs"], 'mode':'test'},)
 
     # wrappers
     for wrapper in c["env"]["wrappers"]:
@@ -131,7 +131,7 @@ if __name__ == "__main__":
 
     # get config and name of agent
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config_file", type=str, default="oa_crstudy_mdp.json")
+    parser.add_argument("--config_file", type=str, default="cr_study_box.json")
     parser.add_argument("--agent_name", type=str, default="TD3")
     parser.add_argument("--actor_weights", type=str, default="TD3_actor_weights.pth")
     parser.add_argument("--critic_weights", type=str, default="TD3_critic_weights.pth")

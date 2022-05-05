@@ -24,7 +24,11 @@ class ObstacleAvoidance_CRstudy(gym.Env):
         self.POMDP_type  = POMDP_type 
         self.mode = mode
         self.N_obst = N_obst
-        self.CR_dist = CR_dist #test
+        self.CR_dist = CR_dist 
+
+        self.USING_BOX_AGENT = True
+        self.box_size = 40
+        self.BOX_N_OBST = 5
 
         # constants
         self.m = 15
@@ -65,9 +69,14 @@ class ObstacleAvoidance_CRstudy(gym.Env):
         else:
             num_vessel_obs = 4
 
+        if self.USING_BOX_AGENT:
+            n_obst_temp = self.BOX_N_OBST
+        else:
+            n_obst_temp = self.N_obst
+
         super(ObstacleAvoidance_CRstudy, self).__init__()
-        self.observation_space = spaces.Box(low=np.full(( 1, (self.N_obst * num_vessel_obs + 2)), -1, dtype=np.float32)[0],
-                                            high=np.full((1, (self.N_obst * num_vessel_obs + 2)), 1,  dtype=np.float32)[0])
+        self.observation_space = spaces.Box(low=np.full(( 1, (n_obst_temp * num_vessel_obs + 2)), -1, dtype=np.float32)[0],
+                                            high=np.full((1, (n_obst_temp * num_vessel_obs + 2)), 1,  dtype=np.float32)[0])
         self.action_space = spaces.Box(low=np.array([-1, -1], dtype=np.float32), 
                                        high=np.array([1, 1], dtype=np.float32))
         
@@ -118,19 +127,43 @@ class ObstacleAvoidance_CRstudy(gym.Env):
         theta2 = np.arctan2(self.y-self.y_obst, self.x-self.x_obst) - self.phi_obst # moving direction of agent with respect to obstacle
 
 
-
+        # agent state
         self.state = np.array([self.u/self.u_norm,
-                               self.r/self.r_norm])
+                                self.r/self.r_norm])
 
-        self.state = np.append(self.state,  self.d_obst/self.d_norm)
-        self.state = np.append(self.state,  theta/np.pi)
+        # obstacles state
+        if self.USING_BOX_AGENT:
+            if self.POMDP_type == "MDP":
+                previous_state_length = 2 + self.N_obst * 4
+            else:
+                previous_state_length = 2 + self.N_obst * 2
+            self.state = np.append(self.state,  self.d_obst/self.d_norm)
+            self.state = np.append(self.state, np.sqrt(2*self.box_size**2) * np.ones(int((self.observation_space.shape[0] - previous_state_length)/4)))
 
-        # POMDP specs
-        if self.POMDP_type == "MDP":
-            v_obs = np.array([(self.u_obst)/self.u_norm,
-                               theta2/np.pi])
-            self.state = np.append(self.state, v_obs)
+            self.state = np.append(self.state,  theta/np.pi)
+            self.state = np.append(self.state, np.pi * np.ones(int((self.observation_space.shape[0] - previous_state_length)/4)))
+
+            if self.POMDP_type == "MDP":
+                self.state = np.append(self.state, (self.u_obst)/self.u_norm)
+                self.state = np.append(self.state, np.zeros(int((self.observation_space.shape[0] - previous_state_length)/4)))
+
+                self.state = np.append(self.state, theta2/np.pi) 
+                self.state = np.append(self.state, np.zeros(int((self.observation_space.shape[0] - previous_state_length)/4)))
+                               
+
+        else:            
+
+            self.state = np.append(self.state,  self.d_obst/self.d_norm)
+            self.state = np.append(self.state,  theta/np.pi)
+
+            # POMDP specs
+            if self.POMDP_type == "MDP":
+                v_obs = np.array([(self.u_obst)/self.u_norm,
+                                theta2/np.pi])
+                self.state = np.append(self.state, v_obs)
         
+        
+
       
     def step(self, action):
         """Takes an action and performs one step in the environment.
@@ -229,9 +262,14 @@ class ObstacleAvoidance_CRstudy(gym.Env):
             self.ax0.scatter(self.x_obst, self.y_obst, s = 2, color = "green")   
             circ = patches.Circle((self.x, self.y), radius=self.Radius/2, edgecolor='blue', facecolor='none', alpha=0.3)
             self.ax0.add_patch(circ)
-            for i in range(self.N_obst):
-                circ2 = patches.Circle((self.x_obst[i], self.y_obst[i]), radius=self.Radius/2, edgecolor='blue', facecolor='none', alpha=0.3)
+            if self.N_obst > 1:
+                for i in range(self.N_obst):
+                    circ2 = patches.Circle((self.x_obst[i], self.y_obst[i]), radius=self.Radius/2, edgecolor='blue', facecolor='none', alpha=0.3)
+                    self.ax0.add_patch(circ2)
+            else:
+                circ2 = patches.Circle((self.x_obst, self.y_obst), radius=self.Radius/2, edgecolor='blue', facecolor='none', alpha=0.3)
                 self.ax0.add_patch(circ2)
+                    
             self.ax0.text(5, 8, "CR: "+ np.array2string(self.CR[self.internal_episode_count], precision=2), horizontalalignment='center', verticalalignment='center', color='blue')    
 
             # visualize path

@@ -21,6 +21,11 @@ register(
 )
 
 register(
+    id="ObstacleAvoidance_CRstudy_box-v0", 
+    entry_point="tud_rl.envs:ObstacleAvoidance_CRstudy_box",
+)
+
+register(
     id="FossenEnv-v0", 
     entry_point="tud_rl.envs:FossenEnv",
 )
